@@ -1,9 +1,10 @@
 #![feature(is_some_and)]
+#![feature(core_intrinsics)]
 
-mod calc;
-mod settings;
-mod simulator;
-mod states;
+pub mod calc;
+pub mod settings;
+pub mod simulator;
+pub mod states;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
@@ -21,11 +22,12 @@ mod tests {
 
     impl World for TestWorld {
         fn get_block(&self, pos: &glam::Vec3A) -> Option<simulator::Block> {
-            let b_type = if pos.y <= self.stone_height as f32 { 1 } else { 0 };
-            // Some(simulator::Block::test_new(*pos, b_type))
+            let b_type = if pos.y <= self.stone_height as f32 { 1 } else { 2 };
+            // None
+            // Some(simulator::Block::test_new(*pos, b_type));
             if b_type == 0 {
                 Some(simulator::Block {
-                    boundingBox: "empty".to_string(),
+                    bounding_box: "empty".to_string(),
                     metadata: 0,
                     b_type,
                     position: *pos,
@@ -34,7 +36,7 @@ mod tests {
                 })
             } else {
                 Some(simulator::Block {
-                    boundingBox: "block".to_string(),
+                    bounding_box: "block".to_string(),
                     metadata: 0,
                     b_type,
                     position: *pos,
@@ -56,7 +58,7 @@ mod tests {
         let entity = states::EntityState {
             position: glam::Vec3A::new(0.0, 80.0, 0.0),
             control_states: ControlStateHandler {
-                forward: true,
+                // forward: true,
                 ..Default::default()
             },
             ..Default::default()
@@ -84,7 +86,7 @@ mod tests {
             }
         };
 
-        for _ in 0..20 {
+        for _ in 0..40 {
             ctx = sim.simulate(ctx, &world);
             println!("{} {}", ctx.state.position, ctx.state.velocity)
         }

@@ -6,6 +6,15 @@ pub mod physics_context {
         pub(crate) affected_after_collision: bool,
     }
 
+    impl CollisionBehavior {
+        pub fn new(block_effects: bool, affected_after_collision: bool) -> Self {
+            Self {
+                block_effects,
+                affected_after_collision,
+            }
+        }
+    }
+
     impl Default for CollisionBehavior {
         /// correct for mobs and players.
         fn default() -> Self {
@@ -24,6 +33,17 @@ pub mod physics_context {
         pub(crate) name: String,
         pub(crate) width: Option<f32>,
         pub(crate) height: Option<f32>,
+    }
+
+    impl EntityType {
+        pub fn new(e_type: String, name: String, width: Option<f32>, height: Option<f32>) -> Self {
+            Self {
+                e_type,
+                name,
+                width,
+                height,
+            }
+        }
     }
 
     #[derive(Default)]
@@ -45,11 +65,43 @@ pub mod physics_context {
     }
 
     impl EntityPhysicsContext {
+        pub fn raw(
+            state: EntityState,
+            collision_behavior: CollisionBehavior,
+            entity_type: EntityType,
+            pose: PlayerPoses,
+            use_controls: bool,
+            step_height: f32,
+            gravity: f32,
+            water_gravity: f32,
+            lava_gravity: f32,
+            airdrag: f32,
+            gravity_then_drag: bool,
+        ) -> Self {
+            Self {
+                state,
+                collision_behavior,
+                entity_type,
+                pose,
+                use_controls,
+                step_height,
+                gravity,
+                water_gravity,
+                lava_gravity,
+                airdrag,
+                gravity_then_drag,
+            }
+        }
+
         pub fn from_state(state: EntityState) -> Self {
             Self {
                 state,
                 ..Default::default()
             }
+        }
+
+        pub fn get_state(&self) -> &EntityState {
+            &self.state
         }
 
         pub fn get_width(&self) -> f32 {
