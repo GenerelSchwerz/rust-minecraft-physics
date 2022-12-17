@@ -1,3 +1,6 @@
+mod entity_physics_ctx;
+pub use entity_physics_ctx::physics_context;
+
 use std::collections::HashMap;
 
 use inter_struct::prelude::*;

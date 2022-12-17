@@ -4,21 +4,29 @@ use glam::vec3a;
 
 use crate::{
     calc::aabb::AABB,
-    settings::{
-        entity_physics_ctx::entity_physics_context::EntityPhysicsContext, physics_settings,
-        PlayerAttribute, PlayerAttributeModifier,
-    },
+    settings::{physics_settings, PlayerAttribute, PlayerAttributeModifier},
+    states::physics_context::EntityPhysicsContext,
 };
 
 /// Temporary
 #[derive(Default)]
 pub struct Block {
     // original = type: u32
-    boundingBox: String,
-    metadata: u32,
-    b_type: u32,
-    position: glam::Vec3A,
-    shapes: Vec<[f32; 6]>,
+    pub(crate) boundingBox: String,
+    pub(crate) metadata: u32,
+    pub(crate) b_type: u32,
+    pub(crate) position: glam::Vec3A,
+    pub(crate) shapes: Vec<[f32; 6]>,
+}
+
+impl Block {
+    pub fn test_new(position: glam::Vec3A, b_type: u32) -> Self {
+        Self {
+            b_type,
+            position,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default)]
@@ -32,15 +40,11 @@ impl Block {
     }
 }
 
-/// Temporary
-pub struct World {}
-
-impl World {
-    pub fn get_block(&self, pos: &glam::Vec3A) -> Option<Block> {
-        Some(Block::default())
-    }
+pub trait World {
+    fn get_block(&self, pos: &glam::Vec3A) -> Option<Block>;
 }
 
+#[derive(Default)]
 pub struct Simulator {
     slime_block_id: u32,
     soulsand_id: u32,
@@ -50,6 +54,7 @@ pub struct Simulator {
     ladder_id: u32,
     vine_id: u32,
     water_id: u32,
+    lava_id: u32,
     water_like: HashSet<u32>,
     movement_speed_attribute: String,
     block_slipperiness: HashMap<u32, f32>,
@@ -66,31 +71,27 @@ fn glamTranslate(mut org: glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
 }
 
 impl Simulator {
-    pub fn support_feature(key: &str) -> bool {
+    fn support_feature(key: &str) -> bool {
         return false;
     }
 
-    pub fn get_entity_bb(entity: &EntityPhysicsContext, pos: &glam::Vec3A) -> AABB {
+    fn get_entity_bb(entity: &EntityPhysicsContext, pos: &glam::Vec3A) -> AABB {
         return entity.get_bb_at_pos_with_pose(&pos);
     }
 
-    pub fn set_pos_to_bb_center_bottom(
-        entity: &EntityPhysicsContext,
-        bb: &AABB,
-        pos: &mut glam::Vec3A,
-    ) {
+    fn set_pos_to_bb_center_bottom(bb: &AABB, entity: &mut EntityPhysicsContext) {
         let half_width = entity.get_half_width();
-        pos.x = bb.minX + half_width;
-        pos.y = bb.minY;
-        pos.z = bb.minZ + half_width;
+        entity.state.position.x = bb.minX + half_width;
+        entity.state.position.y = bb.minY;
+        entity.state.position.z = bb.minZ + half_width;
     }
 
-    pub fn should_move_entity(entity: &EntityPhysicsContext) -> bool {
+    fn should_move_entity(entity: &EntityPhysicsContext) -> bool {
         return !((entity.state.is_collided_horizontally || entity.state.is_collided_vertically)
             && !entity.collision_behavior.affected_after_collision);
     }
 
-    pub fn get_underlying_block_bbs(query_bb: &AABB, world: &World) -> Vec<AABB> {
+    pub fn get_underlying_block_bbs(query_bb: &AABB, world: &impl World) -> Vec<AABB> {
         let mut surrounding_bbs = vec![];
         let q_bb_fl = query_bb.floored();
         let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY - 0.251, q_bb_fl.minZ);
@@ -114,7 +115,7 @@ impl Simulator {
         return surrounding_bbs;
     }
 
-    pub fn get_surrounding_block_bbs(query_bb: &AABB, world: &World) -> Vec<AABB> {
+    pub fn get_surrounding_block_bbs(query_bb: &AABB, world: &impl World) -> Vec<AABB> {
         let mut surrounding_bbs = vec![];
         let q_bb_fl = query_bb.floored();
         let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY - 1.0, q_bb_fl.minZ);
@@ -140,48 +141,50 @@ impl Simulator {
         return surrounding_bbs;
     }
 
-    pub fn adjust_pos_height(
+    fn adjust_pos_height(
         &self,
         entity: &mut EntityPhysicsContext,
         pos: &mut glam::Vec3A,
-        world: &World, /*prismarine-world*/
+        world: &impl World, /*prismarine-world*/
     ) {
-        let player_bb = Self::get_entity_bb(entity, &pos);
-        let query_bb = player_bb.extended(0.0, -1.0, 0.0);
+        let player_bb = entity.get_bb_at_pos_with_pose(pos);
+        let query_bb = player_bb.extend(0.0, -1.0, 0.0);
         let surrounding_bbs = Self::get_surrounding_block_bbs(&query_bb, world);
 
         let mut dy = -1.0;
         for block_bb in surrounding_bbs {
             dy = block_bb.compute_offset_y(&player_bb, dy);
         }
-        pos.y += dy;
+        entity.state.position.y += dy;
     }
 
-    pub fn moveEntity(
+    fn move_entity(
         &self,
         entity: &mut EntityPhysicsContext,
         mut dx: f32,
         mut dy: f32,
         mut dz: f32,
-        world: &World, /*prismarine-world*/
+        world: &impl World, /*prismarine-world*/
     ) {
         if !Self::should_move_entity(entity) {
-            entity.velocity = glam::Vec3A::splat(0.0); // clear
+            entity.state.velocity.x = 0.0;
+            entity.state.velocity.y = 0.0;
+            entity.state.velocity.z = 0.0;
+            // clear
             return;
         }
-
-        let mut pos = entity.position;
 
         if entity.state.is_in_web && !entity.entity_type.name.contains("arrow") {
             dx *= 0.25;
             dy *= 0.05;
             dz *= 0.25;
-            entity.velocity.x = 0.0;
-            entity.velocity.y = 0.0;
-            entity.velocity.z = 0.0;
+            entity.state.velocity.x = 0.0;
+            entity.state.velocity.y = 0.0;
+            entity.state.velocity.z = 0.0;
             entity.state.is_in_web = false;
         }
 
+  
         let old_old_vel_x = dx; // was const
         let mut old_vel_x = dx;
         let old_vel_y = dy; // was const
@@ -194,7 +197,7 @@ impl Simulator {
             // In the 3 loops bellow, y offset should be -1, but that doesnt reproduce vanilla behavior.
             while dx != 0.0
                 && Self::get_surrounding_block_bbs(
-                    &Self::get_entity_bb(entity, &pos).offset(dx, 0.0, 0.0),
+                    &entity.get_current_bb_with_pose().offset(dx, 0.0, 0.0),
                     world,
                 )
                 .len()
@@ -212,7 +215,7 @@ impl Simulator {
 
             while dz != 0.0
                 && Self::get_surrounding_block_bbs(
-                    &Self::get_entity_bb(entity, &pos).offset(0.0, 0.0, dz),
+                    &entity.get_current_bb_with_pose().offset(0.0, 0.0, dz),
                     world,
                 )
                 .len()
@@ -231,7 +234,7 @@ impl Simulator {
             while dx != 0.0
                 && dz != 0.0
                 && Self::get_surrounding_block_bbs(
-                    &Self::get_entity_bb(entity, &pos).offset(dx, 0.0, dz),
+                    &entity.get_current_bb_with_pose().offset(dx, 0.0, dz),
                     world,
                 )
                 .len()
@@ -257,26 +260,28 @@ impl Simulator {
             }
         }
 
-        let mut player_bb = Self::get_entity_bb(entity, &pos);
-        let query_bb = player_bb.extended(dx, dy, dz);
+        let mut player_bb = entity.get_current_bb_with_pose();
+        let query_bb = player_bb.extend(dx, dy, dz);
         let surrounding_bbs = Self::get_surrounding_block_bbs(&query_bb, world);
         let old_bb = player_bb.clone();
 
         for block_bb in &surrounding_bbs {
             dy = block_bb.compute_offset_y(&player_bb, dy);
         }
-        player_bb.offset(0.0, dy, 0.0);
 
+        player_bb = player_bb.offset(0.0, dy, 0.0);
+ 
         for block_bb in &surrounding_bbs {
             dx = block_bb.compute_offset_x(&player_bb, dx);
         }
-        player_bb.offset(dx, 0.0, 0.0);
+        player_bb = player_bb.offset(dx, 0.0, 0.0);
 
         for block_bb in &surrounding_bbs {
             dz = block_bb.compute_offset_z(&player_bb, dz);
         }
-        player_bb.offset(0.0, 0.0, dz);
+        player_bb = player_bb.offset(0.0, 0.0, dz);
 
+  
         // Step on block if height < stepHeight
         if entity.step_height > 0.0
             && (entity.state.on_ground || (dy != old_vel_y && old_vel_y < 0.0))
@@ -288,12 +293,12 @@ impl Simulator {
             let old_bb_col = player_bb.clone();
 
             dy = entity.step_height;
-            let query_bb = old_bb.extended(old_vel_x, dy, old_vel_z);
+            let query_bb = old_bb.extend(old_vel_x, dy, old_vel_z);
             let surrounding_bbs = Self::get_surrounding_block_bbs(&query_bb, world);
 
-            let bb1 = old_bb.clone();
-            let bb2 = old_bb.clone();
-            let bb_xz = bb1.extended(dx, 0.0, dz);
+            let mut bb1 = old_bb.clone();
+            let mut bb2 = old_bb.clone();
+            let bb_xz = bb1.extend(dx, 0.0, dz);
 
             let mut dy1 = dy;
             let mut dy2 = dy;
@@ -301,8 +306,8 @@ impl Simulator {
                 dy1 = block_bb.compute_offset_y(&bb_xz, dy1);
                 dy2 = block_bb.compute_offset_y(&bb2, dy2);
             }
-            bb1.offset(0.0, dy1, 0.0);
-            bb2.offset(0.0, dy2, 0.0);
+            bb1 = bb1.offset(0.0, dy1, 0.0);
+            bb2 = bb2.offset(0.0, dy2, 0.0);
 
             let mut dx1 = old_vel_x;
             let mut dx2 = old_vel_x;
@@ -310,8 +315,8 @@ impl Simulator {
                 dx1 = block_bb.compute_offset_x(&bb1, dx1);
                 dx2 = block_bb.compute_offset_x(&bb2, dx2);
             }
-            bb1.offset(dx1, 0.0, 0.0);
-            bb2.offset(dx2, 0.0, 0.0);
+            bb1 = bb1.offset(dx1, 0.0, 0.0);
+            bb2 = bb2.offset(dx2, 0.0, 0.0);
 
             let mut dz1 = old_vel_z;
             let mut dz2 = old_vel_z;
@@ -319,8 +324,8 @@ impl Simulator {
                 dz1 = block_bb.compute_offset_z(&bb1, dz1);
                 dz2 = block_bb.compute_offset_z(&bb2, dz2);
             }
-            bb1.offset(0.0, 0.0, dz1);
-            bb2.offset(0.0, 0.0, dz2);
+            bb1 = bb1.offset(0.0, 0.0, dz1);
+            bb2 = bb2.offset(0.0, 0.0, dz2);
 
             let norm1 = dx1 * dx1 + dz1 * dz1;
             let norm2 = dx2 * dx2 + dz2 * dz2;
@@ -340,7 +345,7 @@ impl Simulator {
             for block_bb in &surrounding_bbs {
                 dy = block_bb.compute_offset_y(&player_bb, dy);
             }
-            player_bb.offset(0.0, dy, 0.0);
+            player_bb = player_bb.offset(0.0, dy, 0.0);
 
             if old_vel_x_col * old_vel_x_col + old_vel_z_col * old_vel_z_col >= dx * dx + dz * dz {
                 dx = old_vel_x_col;
@@ -349,28 +354,29 @@ impl Simulator {
                 player_bb = old_bb_col;
             }
         }
-
         // Update flags
-        // up until this point, pos == entity.position
-        Self::set_pos_to_bb_center_bottom(entity, &player_bb, &mut pos);
+        // up until this point, pos == entity.state.position
+        Self::set_pos_to_bb_center_bottom(&player_bb, entity);
 
-        // reassign to entity.position (we're deviating here).
+        // reassign to entity.state.position (we're deviating here).
         // this should still match though.
-
-        entity.position = pos;
 
         entity.state.sneak_collision = dx != old_old_vel_x || dz != old_old_vel_z;
         entity.state.is_collided_horizontally = dx != old_vel_x || dz != old_vel_z;
         entity.state.is_collided_vertically = dy != old_vel_y;
         entity.state.on_ground = entity.state.is_collided_vertically && old_vel_y < 0.0;
 
-        let block_at_feet = world.get_block(&glam::Vec3A::new(pos.x, pos.y - 0.2, pos.z));
+        let block_at_feet = world.get_block(&glam::Vec3A::new(
+            entity.state.position.x,
+            entity.state.position.y - 0.2,
+            entity.state.position.z,
+        ));
 
         if dx != old_vel_x {
-            entity.velocity.x = 0.0;
+            entity.state.velocity.x = 0.0;
         }
         if dz != old_vel_z {
-            entity.velocity.z = 0.0;
+            entity.state.velocity.z = 0.0;
         }
         if dy != old_vel_y {
             if entity.collision_behavior.block_effects
@@ -378,9 +384,9 @@ impl Simulator {
                 && block_at_feet.unwrap().b_type == self.slime_block_id
                 && !entity.state.control_states.sneak
             {
-                entity.velocity.y = -entity.velocity.y;
+                entity.state.velocity.y = -entity.state.velocity.y;
             } else {
-                entity.velocity.y = 0.0;
+                entity.state.velocity.y = 0.0;
             }
         }
 
@@ -397,11 +403,11 @@ impl Simulator {
                             && Self::support_feature("velocityBlocksOnCollision")
                         {
                             if block.b_type == self.soulsand_id {
-                                entity.velocity.x *= physics_settings::soulsandSpeed;
-                                entity.velocity.z *= physics_settings::soulsandSpeed;
+                                entity.state.velocity.x *= physics_settings::soulsandSpeed;
+                                entity.state.velocity.z *= physics_settings::soulsandSpeed;
                             } else if block.b_type == self.honeyblock_id {
-                                entity.velocity.x *= physics_settings::honeyblockSpeed;
-                                entity.velocity.z *= physics_settings::honeyblockSpeed;
+                                entity.state.velocity.x *= physics_settings::honeyblockSpeed;
+                                entity.state.velocity.z *= physics_settings::honeyblockSpeed;
                             }
                         }
                         if block.b_type == self.web_id {
@@ -423,12 +429,13 @@ impl Simulator {
                             };
 
                             if down {
-                                entity.velocity.y = bubble_drag
+                                entity.state.velocity.y = bubble_drag
                                     .max_down
-                                    .max(entity.velocity.y - bubble_drag.down);
+                                    .max(entity.state.velocity.y - bubble_drag.down);
                             } else {
-                                entity.velocity.y =
-                                    bubble_drag.max_up.max(entity.velocity.y + bubble_drag.up);
+                                entity.state.velocity.y = bubble_drag
+                                    .max_up
+                                    .max(entity.state.velocity.y + bubble_drag.up);
                             }
                         }
                     }
@@ -440,21 +447,21 @@ impl Simulator {
             cursor.y += 1.0;
         }
         if entity.collision_behavior.block_effects && Self::support_feature("velocityBlocksOnTop") {
-            let tmp = entity.position.clone().floor();
+            let tmp = entity.state.position.clone().floor();
             if let Some(block_below) = world.get_block(&glam::Vec3A::new(tmp.x, tmp.y - 0.5, tmp.z))
             {
                 if block_below.b_type == self.soulsand_id {
-                    entity.velocity.x *= physics_settings::soulsandSpeed;
-                    entity.velocity.z *= physics_settings::soulsandSpeed;
+                    entity.state.velocity.x *= physics_settings::soulsandSpeed;
+                    entity.state.velocity.z *= physics_settings::soulsandSpeed;
                 } else if block_below.b_type == self.honeyblock_id {
-                    entity.velocity.x *= physics_settings::honeyblockSpeed;
-                    entity.velocity.z *= physics_settings::honeyblockSpeed;
+                    entity.state.velocity.x *= physics_settings::honeyblockSpeed;
+                    entity.state.velocity.z *= physics_settings::honeyblockSpeed;
                 }
             }
         }
     }
 
-    pub fn apply_heading(
+    fn apply_heading(
         entity: &mut EntityPhysicsContext,
         mut strafe: f32,
         mut forward: f32,
@@ -476,11 +483,15 @@ impl Simulator {
         let yaw = std::f32::consts::PI - entity.state.yaw;
         let (sin, cos) = yaw.sin_cos();
 
-        entity.velocity.x += strafe * cos - forward * sin;
-        entity.velocity.z += forward * cos + strafe * sin;
+        entity.state.velocity.x += strafe * cos - forward * sin;
+        entity.state.velocity.z += forward * cos + strafe * sin;
     }
 
-    pub fn isOnLadder(&self, pos: &glam::Vec3A, world: &World /*prismarine-world*/) -> bool {
+    fn is_on_ladder(
+        &self,
+        pos: &glam::Vec3A,
+        world: &impl World, /*prismarine-world*/
+    ) -> bool {
         if let Some(block) = world.get_block(pos) {
             return block.b_type == self.ladder_id || block.b_type == self.vine_id;
         }
@@ -494,7 +505,7 @@ impl Simulator {
         &self,
         entity: &EntityPhysicsContext,
         pos: &glam::Vec3A,
-        world: &World, /*prismarine-world*/
+        world: &impl World, /*prismarine-world*/
     ) -> bool {
         let p_bb = Self::get_entity_bb(entity, pos);
         return !Self::get_surrounding_block_bbs(&p_bb, world)
@@ -503,10 +514,36 @@ impl Simulator {
             && self.get_water_in_bb(&p_bb, world).len() == 0;
     }
 
-    pub fn get_water_in_bb(
+    pub fn is_material_in_bb(
+        query_bb: &AABB,
+        b_type: u32,
+        world: &impl World, /*prismarine-world*/
+    ) -> bool {
+        let q_bb_fl = query_bb.floored();
+        let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY, q_bb_fl.minZ);
+
+        while cursor.y <= q_bb_fl.maxY {
+            while cursor.z <= q_bb_fl.maxZ {
+                while cursor.x <= q_bb_fl.maxX {
+                    let block = world.get_block(&cursor);
+                    if block.is_some_and(|b| b.b_type == b_type) {
+                        return true;
+                    }
+
+                    cursor.x += 1.0;
+                }
+                cursor.z += 1.0;
+            }
+            cursor.y += 1.0;
+        }
+
+        return false;
+    }
+
+    fn get_water_in_bb(
         &self,
         query_bb: &AABB,
-        world: &World, /*prismarine-world*/
+        world: &impl World, /*prismarine-world*/
     ) -> Vec<Block> {
         let mut water_blocks = vec![];
         let q_bb_fl = query_bb.floored();
@@ -536,11 +573,11 @@ impl Simulator {
         return water_blocks;
     }
 
-    pub fn get_liquid_height_percent(&self, block: &Block) -> f32 {
+    fn get_liquid_height_percent(&self, block: &Block) -> f32 {
         return (self.get_rendered_depth(block) + 1.0) / 9.0;
     }
 
-    pub fn get_rendered_depth(&self, block: &Block) -> f32 {
+    fn get_rendered_depth(&self, block: &Block) -> f32 {
         if self.water_like.contains(&block.b_type) {
             return 0.0;
         }
@@ -554,7 +591,7 @@ impl Simulator {
         return if meta >= 8 { 0.0 } else { meta as f32 };
     }
 
-    pub fn get_flow(&self, block: &Block, world: &World /*prismarine-world*/) -> glam::Vec3A {
+    fn get_flow(&self, block: &Block, world: &impl World /*prismarine-world*/) -> glam::Vec3A {
         let curlevel = self.get_rendered_depth(block);
         let mut flow = glam::Vec3A::splat(0.0);
         for [dx, dz] in [[0.0, 1.0], [-1.0, 0.0], [0.0, -1.0], [1.0, 0.0]] {
@@ -601,11 +638,11 @@ impl Simulator {
         return flow.normalize();
     }
 
-    pub fn is_in_water_apply_current(
+    fn is_in_water_apply_current(
         &self,
         bb: &AABB,
-        vel: &mut glam::Vec3,
-        world: &World, /*prismarine-world*/
+        vel: &mut glam::Vec3A,
+        world: &impl World, /*prismarine-world*/
     ) -> bool {
         let mut acceleration = glam::Vec3A::splat(0.0);
         let water_blocks = self.get_water_in_bb(bb, world);
@@ -626,19 +663,24 @@ impl Simulator {
         return is_in_water;
     }
 
-    pub fn move_entity_with_heading(
+    fn move_entity_with_heading(
         &self,
         entity: &mut EntityPhysicsContext,
         strafe: f32,
         forward: f32,
-        world: &World, /*prismarine-world*/
+        world: &impl World, /*prismarine-world*/
     ) {
         if !Self::should_move_entity(entity) {
-            entity.velocity = glam::Vec3A::splat(0.0);
+            entity.state.velocity.x = 0.0;
+            entity.state.velocity.y = 0.0;
+            entity.state.velocity.z = 0.0;
             return;
         }
 
-        let gravity_multiplier = if entity.velocity.y <= 0.0 && entity.state.slow_falling > 0 {
+        // let mut vel = entity.state.velocity;
+        // let pos = entity.state.position;
+
+        let gravity_multiplier = if entity.state.velocity.y <= 0.0 && entity.state.slow_falling > 0 {
             physics_settings::slowFalling
         } else {
             1.0
@@ -648,11 +690,7 @@ impl Simulator {
         if !entity.state.is_in_water && !entity.state.is_in_lava {
             let mut acceleration = physics_settings::airborneAcceleration;
             let mut inertia = physics_settings::airborneInertia;
-            if let Some(block_under) = world.get_block(&vec3a(
-                entity.position.x,
-                entity.position.y - 1.0,
-                entity.position.z,
-            )) {
+            if let Some(block_under) = world.get_block(&vec3a(entity.state.velocity.x, entity.state.velocity.y - 1.0, entity.state.velocity.z)) {
                 if entity.state.on_ground {
                     let mut player_speed_attribute: PlayerAttribute;
                     if entity
@@ -714,64 +752,57 @@ impl Simulator {
 
             Self::apply_heading(entity, strafe, forward, acceleration);
 
-            if (entity.collision_behavior.block_effects && self.isOnLadder(&entity.position, world))
+            if entity.collision_behavior.block_effects
+                && self.is_on_ladder(&entity.state.position, world)
             {
-                entity.velocity.x = (-physics_settings::ladderMaxSpeed)
-                    .min(entity.velocity.x)
+                entity.state.velocity.x = (-physics_settings::ladderMaxSpeed)
+                    .min(entity.state.velocity.x)
                     .max(physics_settings::ladderMaxSpeed);
-                entity.velocity.z = (-physics_settings::ladderMaxSpeed)
-                    .min(entity.velocity.x)
+                entity.state.velocity.z = (-physics_settings::ladderMaxSpeed)
+                    .min(entity.state.velocity.z)
                     .max(physics_settings::ladderMaxSpeed);
-                entity.velocity.y = entity.velocity.y.max(if entity.state.control_states.sneak {
+                entity.state.velocity.y = entity.state.velocity.y.max(if entity.state.control_states.sneak {
                     0.0
                 } else {
                     -physics_settings::ladderMaxSpeed
                 });
             }
 
-            self.moveEntity(
-                entity,
-                entity.velocity.x,
-                entity.velocity.y,
-                entity.velocity.z,
-                world,
-            );
+            self.move_entity(entity, entity.state.velocity.x, entity.state.velocity.y, entity.state.velocity.z, world);
 
             if entity.collision_behavior.block_effects
-                && self.isOnLadder(&entity.position, world)
+                && self.is_on_ladder(&entity.state.position, world)
                 && (entity.state.is_collided_horizontally
                     || (Self::support_feature("climbUsingJump")
                         && entity.state.control_states.jump))
             {
-                entity.velocity.y = physics_settings::ladderClimbSpeed; // climb ladder
+                entity.state.velocity.y = physics_settings::ladderClimbSpeed; // climb ladder
             }
 
             // Not adding an additional function call. No point.
             if entity.gravity_then_drag {
                 // Apply gravity, then air drag.
                 if entity.state.levitation > 0 {
-                    entity.velocity.y +=
-                        (0.05 * entity.state.levitation as f32 - entity.velocity.y) * 0.2;
+                    entity.state.velocity.y += (0.05 * entity.state.levitation as f32 - entity.state.velocity.y) * 0.2;
                 } else {
-                    entity.velocity.y -= entity.gravity * gravity_multiplier;
+                    entity.state.velocity.y -= entity.gravity * gravity_multiplier;
                 }
-                entity.velocity.y *= entity.airdrag;
+                entity.state.velocity.y *= entity.airdrag;
             } else {
                 // Apply airdrag, then gravity.
-                entity.velocity.y *= entity.airdrag;
+                entity.state.velocity.y *= entity.airdrag;
                 if entity.state.levitation > 0 {
-                    entity.velocity.y +=
-                        (0.05 * entity.state.levitation as f32 - entity.velocity.y) * 0.2;
+                    entity.state.velocity.y += (0.05 * entity.state.levitation as f32 - entity.state.velocity.y) * 0.2;
                 } else {
-                    entity.velocity.y -= entity.gravity * gravity_multiplier;
+                    entity.state.velocity.y -= entity.gravity * gravity_multiplier;
                 }
             }
 
-            entity.velocity.x *= inertia;
-            entity.velocity.z *= inertia;
+            entity.state.velocity.x *= inertia;
+            entity.state.velocity.z *= inertia;
         } else {
             // Water / Lava movement
-            let last_y = entity.position.y;
+            let last_y = entity.state.position.y;
             let mut acceleration = physics_settings::liquidAcceleration;
             let inertia = if entity.state.is_in_water {
                 physics_settings::waterInertia
@@ -796,44 +827,150 @@ impl Simulator {
             }
 
             Self::apply_heading(entity, strafe, forward, acceleration);
-            self.moveEntity(
-                entity,
-                entity.velocity.x,
-                entity.velocity.y,
-                entity.velocity.z,
-                world,
-            );
+            self.move_entity(entity, entity.state.velocity.x, entity.state.velocity.y, entity.state.velocity.z, world);
             if entity.gravity_then_drag {
-                entity.velocity.y -= if entity.state.is_in_water {
+                entity.state.velocity.y -= if entity.state.is_in_water {
                     entity.water_gravity
                 } else {
                     entity.lava_gravity
                 } * gravity_multiplier;
-                entity.velocity.y *= inertia;
+                entity.state.velocity.y *= inertia;
             } else {
-                entity.velocity.y *= inertia;
-                entity.velocity.y -= if entity.state.is_in_water {
+                entity.state.velocity.y *= inertia;
+                entity.state.velocity.y -= if entity.state.is_in_water {
                     entity.water_gravity
                 } else {
                     entity.lava_gravity
                 } * gravity_multiplier;
             }
-            entity.velocity.x *= horizontal_inertia;
-            entity.velocity.z *= horizontal_inertia;
+            entity.state.velocity.x *= horizontal_inertia;
+            entity.state.velocity.z *= horizontal_inertia;
 
             if entity.state.is_collided_horizontally
                 && self.does_not_collide(
                     entity,
                     &glam::Vec3A::new(
-                        entity.position.x + entity.velocity.x,
-                        entity.velocity.y + 0.6 + last_y,
-                        entity.position.z + entity.velocity.z,
+                        entity.state.position.x + entity.state.velocity.x,
+                        entity.state.position.y + entity.state.velocity.y + 0.6 - entity.state.position.y + last_y,
+                        entity.state.position.z + entity.state.velocity.z,
                     ),
                     world,
                 )
             {
-                entity.velocity.y = physics_settings::outOfLiquidImpulse; // jump out of liquid
+                entity.state.velocity.y = physics_settings::outOfLiquidImpulse; // jump out of liquid
             }
         }
+
+        // entity.state.velocity = vel;
+    }
+
+    pub fn simulate(
+        &self,
+        mut entity: EntityPhysicsContext,
+        world: &impl World, /*prismarine-world*/
+    ) -> EntityPhysicsContext {
+        if !Self::should_move_entity(&entity) {
+            entity.state.velocity.x = 0.0;
+            entity.state.velocity.y = 0.0;
+            entity.state.velocity.z = 0.0;
+            return entity;
+        }
+
+        let mut vel = entity.state.velocity;
+        let pos = &entity.state.position;
+
+        let water_bb = entity
+            .get_bb_at_pos_with_pose(pos)
+            .contract(0.001, 0.401, 0.001);
+        let lava_bb = entity.get_bb_at_pos_with_pose(pos).contract(0.1, 0.4, 0.1);
+
+        // assume that if we shouldn't move entity, isInWater and isInLava are already properly set.
+
+        entity.state.is_in_water = self.is_in_water_apply_current(&water_bb, &mut vel, world);
+        entity.state.is_in_lava = Self::is_material_in_bb(&lava_bb, self.lava_id, world);
+
+        entity.state.velocity = vel;
+
+        // Reset velocity component if it falls under the threshold
+        if entity.state.velocity.x.abs() < physics_settings::negligeableVelocity {
+            entity.state.velocity.x = 0.0;
+        }
+        if entity.state.velocity.y.abs() < physics_settings::negligeableVelocity {
+            entity.state.velocity.y = 0.0;
+        }
+        if entity.state.velocity.z.abs() < physics_settings::negligeableVelocity {
+            entity.state.velocity.z = 0.0;
+        }
+
+        // Handle inputs
+        if entity.use_controls {
+            if entity.state.control_states.jump || entity.state.jump_queued {
+                if entity.state.jump_ticks > 0 {
+                    entity.state.jump_ticks -= 1;
+                }
+                if entity.state.is_in_water || entity.state.is_in_lava {
+                    // originally Math.fround(0.4);
+                    entity.state.velocity.y += 0.4000000059604645;
+                } else if entity.state.on_ground && entity.state.jump_ticks == 0 {
+                    let block_below = world.get_block(&glamOffset(
+                        &entity.state.position.clone().floor(),
+                        0.0,
+                        -0.5,
+                        0.0,
+                    ));
+                    // 0.41999998688697815 originally Math.fround(0.42)
+                    entity.state.velocity.y = 0.41999998688697815
+                        * (if block_below.is_some_and(|b| b.b_type == self.honeyblock_id) {
+                            physics_settings::honeyblockJumpSpeed
+                        } else {
+                            1.0
+                        });
+                    if entity.state.jump_boost > 0 {
+                        entity.state.velocity.y += 0.1 * entity.state.jump_boost as f32;
+                    }
+                    if entity.state.control_states.sprint {
+                        let yaw = std::f32::consts::PI - entity.state.yaw;
+
+                       
+                        entity.state.velocity.x -= yaw.sin() * 0.2;
+                        entity.state.velocity.z += yaw.cos() * 0.2;
+
+                     
+                    }
+                    entity.state.jump_ticks = physics_settings::autojumpCooldown;
+                }
+            } else {
+                entity.state.jump_ticks = 0; // reset autojump cooldown
+            }
+            entity.state.jump_queued = false;
+
+            let mut strafe = ((entity.state.control_states.right as u8 as f32)
+                - (entity.state.control_states.left as u8 as f32))
+                * 0.98;
+            let mut forward = ((entity.state.control_states.forward as u8 as f32)
+                - (entity.state.control_states.back as u8 as f32))
+                * 0.98;
+
+            if entity.state.control_states.sneak {
+                strafe *= physics_settings::sneakSpeed;
+                forward *= physics_settings::sneakSpeed;
+                entity.state.control_states.sprint = false;
+            }
+
+            // this is not good enough. Different items slow you down differently.
+            // patch this later.
+            if entity.state.is_using_item {
+                strafe *= physics_settings::usingItemSpeed;
+                forward *= physics_settings::usingItemSpeed;
+                entity.state.control_states.sprint = false;
+            }
+
+            // entity.state.velocity = vel;
+            self.move_entity_with_heading(&mut entity, strafe, forward, world);
+        } else {
+            self.move_entity_with_heading(&mut entity, 0.0, 0.0, world);
+        }
+
+        return entity;
     }
 }

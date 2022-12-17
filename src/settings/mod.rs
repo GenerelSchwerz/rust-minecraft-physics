@@ -1,4 +1,3 @@
-pub mod entity_physics_ctx;
 pub mod physics_settings;
 
 #[derive(Clone, Copy)]

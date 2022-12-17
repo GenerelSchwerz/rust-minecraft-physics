@@ -20,7 +20,7 @@ pub const lavaInertia: f32 = 0.5;
 pub const liquidAcceleration: f32 = 0.02;
 pub const defaultSlipperiness: f32 = 0.6;
 pub const outOfLiquidImpulse: f32 = 0.3;
-pub const autojumpCooldown: u32 = 10; // ticks (0.5s)
+pub const autojumpCooldown: u8 = 10; // ticks (0.5s)
 pub const bubbleColumnSurfaceDrag: BubbleColumnInfo = BubbleColumnInfo {
     down: 0.03,
     max_down: -0.9,

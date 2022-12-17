@@ -42,7 +42,7 @@ impl AABB {
         }
     }
 
-    pub fn extend(&mut self, dx: f32, dy: f32, dz: f32) {
+    pub fn extend(mut self, dx: f32, dy: f32, dz: f32) -> Self {
         if dx < 0.0 {
             self.minX += dx
         } else {
@@ -58,38 +58,18 @@ impl AABB {
         } else {
             self.maxZ += dz
         }
+
+        return self;
     }
 
-    pub fn extended(&self, dx: f32, dy: f32, dz: f32) -> Self {
-
-        let mut other = self.clone();
-
-        if dx < 0.0 {
-            other.minX += dx
-        } else {
-            other.maxX += dx;
-        }
-        if dy < 0.0 {
-            other.minY += dy
-        } else {
-            other.maxY += dy
-        }
-        if dz < 0.0 {
-            other.minZ += dz
-        } else {
-            other.maxZ += dz
-        }
-        
-        return other;
-    }
-
-    pub fn contract(&mut self, x: f32, y: f32, z: f32) {
+    pub fn contract(mut self, x: f32, y: f32, z: f32) -> Self {
         self.minX += x;
         self.minY += y;
         self.minZ += z;
         self.maxX -= x;
         self.maxY -= y;
         self.maxZ -= z;
+        return self;
     }
 
     pub fn expand(mut self, x: f32, y: f32, z: f32) -> Self {

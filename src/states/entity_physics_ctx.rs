@@ -1,37 +1,40 @@
-
-
-pub mod entity_physics_context {
-    use crate::{calc::aabb::AABB, settings::{PlayerPoses}, states::EntityState};
-
+pub mod physics_context {
+    use crate::{calc::aabb::AABB, settings::PlayerPoses, states::EntityState};
 
     pub struct CollisionBehavior {
         pub(crate) block_effects: bool,
         pub(crate) affected_after_collision: bool,
     }
 
+    impl Default for CollisionBehavior {
+        /// correct for mobs and players.
+        fn default() -> Self {
+            Self {
+                block_effects: true,
+                affected_after_collision: true,
+            }
+        }
+    }
+
     /// placeholder.
+    #[derive(Default)]
     pub struct EntityType {
         /// original: "type"
         pub(crate) e_type: String,
         pub(crate) name: String,
-        width: Option<f32>,
-        height: Option<f32>,
+        pub(crate) width: Option<f32>,
+        pub(crate) height: Option<f32>,
     }
 
+    #[derive(Default)]
     pub struct EntityPhysicsContext {
         pub(crate) state: EntityState,
 
         pub(crate) collision_behavior: CollisionBehavior,
         pub(crate) entity_type: EntityType,
-        pose: PlayerPoses,
-  
+        pub(crate) pose: PlayerPoses,
+
         pub(crate) use_controls: bool,
-   
-        pub(crate) position: glam::Vec3A,
-        pub(crate) velocity: glam::Vec3A,
-
-
-        // pub(crate) attributes: 
 
         pub(crate) step_height: f32,
         pub(crate) gravity: f32,
@@ -39,10 +42,16 @@ pub mod entity_physics_context {
         pub(crate) lava_gravity: f32,
         pub(crate) airdrag: f32,
         pub(crate) gravity_then_drag: bool,
-   
     }
 
     impl EntityPhysicsContext {
+        pub fn from_state(state: EntityState) -> Self {
+            Self {
+                state,
+                ..Default::default()
+            }
+        }
+
         pub fn get_width(&self) -> f32 {
             if self.entity_type.e_type == "player" {
                 // potential performance penalty due to self.pose needing copy (not zero-cost).
@@ -93,15 +102,13 @@ pub mod entity_physics_context {
         pub fn get_current_bb_with_pose(&self) -> AABB {
             let half_width = self.get_half_width();
             return AABB {
-                minX: self.position.x - half_width,
-                minY: self.position.y,
-                minZ: self.position.z - half_width,
-                maxX: self.position.x + half_width,
-                maxY: self.position.y + self.get_height(),
-                maxZ: self.position.z + half_width,
+                minX: self.state.position.x - half_width,
+                minY: self.state.position.y,
+                minZ: self.state.position.z - half_width,
+                maxX: self.state.position.x + half_width,
+                maxY: self.state.position.y + self.get_height(),
+                maxZ: self.state.position.z + half_width,
             };
         }
     }
-
 }
-
