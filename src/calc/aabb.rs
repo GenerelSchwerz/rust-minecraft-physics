@@ -1,148 +1,154 @@
 #[derive(Clone, Copy, Debug)]
 pub struct AABB {
-    pub minX: f32,
-    pub minY: f32,
-    pub minZ: f32,
-    pub maxX: f32,
-    pub maxY: f32,
-    pub maxZ: f32,
+    pub min_x: f32,
+    pub min_y: f32,
+    pub min_z: f32,
+    pub max_x: f32,
+    pub max_y: f32,
+    pub max_z: f32,
 }
 
 impl AABB {
 
     #[inline(always)]
-    pub fn new(minX: f32, minY: f32, minZ: f32, maxX: f32, maxY: f32, maxZ: f32) -> Self {
+    pub fn new(min_x: f32, min_y: f32, min_z: f32, max_x: f32, max_y: f32, max_z: f32) -> Self {
         Self {
-            minX,
-            minY,
-            minZ,
-            maxX,
-            maxY,
-            maxZ
+            min_x,
+            min_y,
+            min_z,
+            max_x,
+            max_y,
+            max_z
         }
     }
 
     pub fn floor(&mut self) {
-        self.minX = self.minX.floor();
-        self.minY = self.minY.floor();
-        self.minZ = self.minZ.floor();
-        self.maxX = self.maxX.floor();
-        self.maxY = self.maxY.floor();
-        self.maxZ = self.maxZ.floor();
+        self.min_x = self.min_x.floor();
+        self.min_y = self.min_y.floor();
+        self.min_z = self.min_z.floor();
+        self.max_x = self.max_x.floor();
+        self.max_y = self.max_y.floor();
+        self.max_z = self.max_z.floor();
     }
 
     pub fn floored(&self) -> Self {
         Self {
-            minX: self.minX.floor(),
-            minY: self.minY.floor(),
-            minZ: self.minZ.floor(),
-            maxX: self.maxX.floor(),
-            maxY: self.maxY.floor(),
-            maxZ: self.maxZ.floor(),
+            min_x: self.min_x.floor(),
+            min_y: self.min_y.floor(),
+            min_z: self.min_z.floor(),
+            max_x: self.max_x.floor(),
+            max_y: self.max_y.floor(),
+            max_z: self.max_z.floor(),
         }
     }
 
     pub fn extend(mut self, dx: f32, dy: f32, dz: f32) -> Self {
         if dx < 0.0 {
-            self.minX += dx
+            self.min_x += dx
         } else {
-            self.maxX += dx;
+            self.max_x += dx;
         }
         if dy < 0.0 {
-            self.minY += dy
+            self.min_y += dy
         } else {
-            self.maxY += dy
+            self.max_y += dy
         }
         if dz < 0.0 {
-            self.minZ += dz
+            self.min_z += dz
         } else {
-            self.maxZ += dz
+            self.max_z += dz
         }
 
         return self;
     }
 
     pub fn contract(mut self, x: f32, y: f32, z: f32) -> Self {
-        self.minX += x;
-        self.minY += y;
-        self.minZ += z;
-        self.maxX -= x;
-        self.maxY -= y;
-        self.maxZ -= z;
+        self.min_x += x;
+        self.min_y += y;
+        self.min_z += z;
+        self.max_x -= x;
+        self.max_y -= y;
+        self.max_z -= z;
         return self;
     }
 
     pub fn expand(mut self, x: f32, y: f32, z: f32) -> Self {
-        self.minX -= x;
-        self.minY -= y;
-        self.minZ -= z;
-        self.maxX += x;
-        self.maxY += y;
-        self.maxZ += z;
+        self.min_x -= x;
+        self.min_y -= y;
+        self.min_z -= z;
+        self.max_x += x;
+        self.max_y += y;
+        self.max_z += z;
         return self;
     }
 
     pub fn offset(mut self, x: f32, y: f32, z: f32) -> Self {
-        self.minX += x;
-        self.minY += y;
-        self.minZ += z;
-        self.maxX += x;
-        self.maxY += y;
-        self.maxZ += z;
+  
+        self.min_x += x;
+        self.min_y += y;
+        self.min_z += z;
+        self.max_x += x;
+        self.max_y += y;
+        self.max_z += z;
+
+   
         return self;
     }
 
     pub fn compute_offset_x(&self, other: &AABB, mut offset_x: f32) -> f32 {
-        if other.maxY > self.minY
-            && other.minY < self.maxY
-            && other.maxZ > self.minZ
-            && other.minZ < self.maxZ
+        if other.max_y > self.min_y
+            && other.min_y < self.max_y
+            && other.max_z > self.min_z
+            && other.min_z < self.max_z
         {
-            if offset_x > 0.0 && other.maxX <= self.minX {
-                offset_x = (self.minX - other.maxX).min(offset_x)
-            } else if offset_x < 0.0 && other.minX >= self.maxX {
-                offset_x = (self.maxX - other.minX).min(offset_x)
+            if offset_x > 0.0 && other.max_x <= self.min_x {
+                offset_x = (self.min_x - other.max_x).min(offset_x)
+            } else if offset_x < 0.0 && other.min_x >= self.max_x {
+                offset_x = (self.max_x - other.min_x).max(offset_x)
             }
         }
         return offset_x;
     }
 
     pub fn compute_offset_y(&self, other: &AABB, mut offset_y: f32) -> f32 {
-        if other.maxX > self.minX
-            && other.minX < self.maxX
-            && other.maxZ > self.minZ
-            && other.minZ < self.maxZ
+        if other.max_x > self.min_x
+            && other.min_x < self.max_x
+            && other.max_z > self.min_z
+            && other.min_z < self.max_z
         {
-            if offset_y > 0.0 && other.maxY <= self.minY {
-                offset_y = (self.minY - other.maxY).min(offset_y)
-            } else if offset_y < 0.0 && other.minY >= self.maxY {
-                offset_y = (self.maxY - other.minY).min(offset_y)
+            if offset_y > 0.0 && other.max_y <= self.min_y { 
+                offset_y = (self.min_y - other.max_y).min(offset_y)
+            } else if offset_y < 0.0 && other.min_y >= self.max_y {
+                // println!("{} {}", self.max_y - other.min_y, offset_y);
+                offset_y = (self.max_y - other.min_y).max(offset_y)
             }
+        } else {
+            
         }
         return offset_y;
     }
 
     pub fn compute_offset_z(&self, other: &AABB, mut offset_z: f32) -> f32 {
-        if other.maxX > self.minX
-            && other.minX < self.maxX
-            && other.maxY > self.minY
-            && other.minY < self.maxY
+        if other.max_x > self.min_x
+            && other.min_x < self.max_x
+            && other.max_y > self.min_y
+            && other.min_y < self.max_y
         {
-            if offset_z > 0.0 && other.maxZ <= self.minZ {
-                offset_z = (self.minZ - other.maxZ).min(offset_z)
-            } else if offset_z < 0.0 && other.minZ >= self.maxZ {
-                offset_z = (self.maxZ - other.minZ).min(offset_z)
+            if offset_z > 0.0 && other.max_z <= self.min_z {
+                offset_z = (self.min_z - other.max_z).min(offset_z)
+            } else if offset_z < 0.0 && other.min_z >= self.max_z {
+                offset_z = (self.max_z - other.min_z).max(offset_z)
             }
         }
         return offset_z;
     }
 
     pub fn intersects(&self, other: &AABB) -> bool {
-        return self.minX < other.maxX
-            && self.maxX > other.minX
-            && self.minY < other.maxY
-            && self.maxY > other.minY
-            && self.minZ < other.maxZ
-            && self.maxZ > other.minZ;
+        return self.min_x < other.max_x
+            && self.max_x > other.min_x
+            && self.min_y < other.max_y
+            && self.max_y > other.min_y
+            && self.min_z < other.max_z
+            && self.max_z > other.min_z;
     }
 }

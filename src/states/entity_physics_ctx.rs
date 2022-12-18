@@ -128,12 +128,12 @@ pub mod physics_context {
         pub fn get_bb_at_pos(&self, position: &glam::Vec3A) -> AABB {
             let half_width = self.entity_type.width.unwrap_or(0.0) / 2.0;
             return AABB {
-                minX: position.x - half_width,
-                minY: position.y,
-                minZ: position.z - half_width,
-                maxX: position.x + half_width,
-                maxY: position.y + self.entity_type.height.unwrap_or(0.0),
-                maxZ: position.z + half_width,
+                min_x: position.x - half_width,
+                min_y: position.y,
+                min_z: position.z - half_width,
+                max_x: position.x + half_width,
+                max_y: position.y + self.entity_type.height.unwrap_or(0.0),
+                max_z: position.z + half_width,
             };
         }
 
@@ -141,12 +141,12 @@ pub mod physics_context {
         pub fn get_bb_at_pos_with_pose(&self, position: &glam::Vec3A) -> AABB {
             let half_width = self.get_half_width();
             return AABB {
-                minX: position.x - half_width,
-                minY: position.y,
-                minZ: position.z - half_width,
-                maxX: position.x + half_width,
-                maxY: position.y + self.get_height(),
-                maxZ: position.z + half_width,
+                min_x: position.x - half_width,
+                min_y: position.y,
+                min_z: position.z - half_width,
+                max_x: position.x + half_width,
+                max_y: position.y + self.get_height(),
+                max_z: position.z + half_width,
             };
         }
 
@@ -154,12 +154,12 @@ pub mod physics_context {
         pub fn get_current_bb_with_pose(&self) -> AABB {
             let half_width = self.get_half_width();
             return AABB {
-                minX: self.state.position.x - half_width,
-                minY: self.state.position.y,
-                minZ: self.state.position.z - half_width,
-                maxX: self.state.position.x + half_width,
-                maxY: self.state.position.y + self.get_height(),
-                maxZ: self.state.position.z + half_width,
+                min_x: self.state.position.x - half_width,
+                min_y: self.state.position.y,
+                min_z: self.state.position.z - half_width,
+                max_x: self.state.position.x + half_width,
+                max_y: self.state.position.y + self.get_height(),
+                max_z: self.state.position.z + half_width,
             };
         }
     }

@@ -68,7 +68,7 @@ pub struct Simulator {
     block_slipperiness: HashMap<u32, f32>,
 }
 
-fn glamOffset(org: &glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
+fn glam_offset(org: &glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
     glam::Vec3A::new(org.x + x, org.y + y, org.z + z)
 }
 fn glamTranslate(mut org: glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
@@ -79,7 +79,7 @@ fn glamTranslate(mut org: glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
 }
 
 impl Simulator {
-    fn support_feature(key: &str) -> bool {
+    fn support_feature(_key: &str) -> bool {
         return false;
     }
 
@@ -89,10 +89,12 @@ impl Simulator {
 
     fn set_pos_to_bb_center_bottom(entity: &mut EntityPhysicsContext, bb: &AABB) {
         // println!("{} {:?}", entity.state.position, bb);
+
+
         let half_width = entity.get_half_width();
-        entity.state.position.x = bb.minX + half_width;
-        entity.state.position.y = bb.minY;
-        entity.state.position.z = bb.minZ + half_width;
+        entity.state.position.x = bb.min_x + half_width;
+        entity.state.position.y = bb.min_y;
+        entity.state.position.z = bb.min_z + half_width;
     }
 
     fn should_move_entity(entity: &EntityPhysicsContext) -> bool {
@@ -103,10 +105,10 @@ impl Simulator {
     pub fn get_underlying_block_bbs(query_bb: &AABB, world: &impl World) -> Vec<AABB> {
         let mut surrounding_bbs = vec![];
         let q_bb_fl = query_bb.floored();
-        let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY - 0.251, q_bb_fl.minZ);
+        let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y - 0.251, q_bb_fl.min_z);
 
-        while cursor.z <= q_bb_fl.maxZ {
-            while cursor.x <= q_bb_fl.maxX {
+        while cursor.z <= q_bb_fl.max_z {
+            while cursor.x <= q_bb_fl.max_x {
                 if let Some(block) = world.get_block(&cursor) {
                     let b_pos = block.position;
                     for shape in block.shapes {
@@ -125,19 +127,21 @@ impl Simulator {
     }
 
     pub fn get_surrounding_block_bbs(query_bb: &AABB, world: &impl World) -> Vec<AABB> {
+       
         let mut surrounding_bbs = vec![];
         let q_bb_fl = query_bb.floored();
-        let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY - 1.0, q_bb_fl.minZ);
-        while cursor.y <= q_bb_fl.maxY {
-            while cursor.z <= q_bb_fl.maxZ {
-                while cursor.x <= q_bb_fl.maxX {
+        let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y - 1.0, q_bb_fl.min_z);
+        while cursor.y <= q_bb_fl.max_y {
+            cursor.z = q_bb_fl.min_z;
+            while cursor.z <= q_bb_fl.max_z {
+                cursor.x = q_bb_fl.min_x;
+                while cursor.x <= q_bb_fl.max_x {
                     if let Some(block) = world.get_block(&cursor) {
                         let b_pos = block.position;
                         for shape in block.shapes {
                             let bb = AABB::new(
                                 shape[0], shape[1], shape[2], shape[3], shape[4], shape[5],
-                            );
-                            bb.offset(b_pos.x, b_pos.y, b_pos.z);
+                            ).offset(b_pos.x, b_pos.y, b_pos.z);
                             surrounding_bbs.push(bb);
                         }
                     }
@@ -277,9 +281,6 @@ impl Simulator {
         for block_bb in &surrounding_bbs {
             dy = block_bb.compute_offset_y(&player_bb, dy);
         }
-        unsafe {
-            std::intrinsics::breakpoint();
-        }
         player_bb = player_bb.offset(0.0, dy, 0.0);
 
         for block_bb in &surrounding_bbs {
@@ -405,11 +406,11 @@ impl Simulator {
         // Finally, apply block collisions (web, soulsand...)
         player_bb = player_bb.contract(0.001, 0.001, 0.001);
         let p_bb_fl = player_bb.floored();
-        let mut cursor = glam::Vec3A::new(p_bb_fl.minX, p_bb_fl.minY, p_bb_fl.minZ);
+        let mut cursor = glam::Vec3A::new(p_bb_fl.min_x, p_bb_fl.min_y, p_bb_fl.min_z);
 
-        while cursor.y <= p_bb_fl.maxY {
-            while cursor.z <= p_bb_fl.maxZ {
-                while cursor.x <= p_bb_fl.maxX {
+        while cursor.y <= p_bb_fl.max_y {
+            while cursor.z <= p_bb_fl.max_z {
+                while cursor.x <= p_bb_fl.max_x {
                     if let Some(block) = world.get_block(&cursor) {
                         if entity.collision_behavior.block_effects
                             && Self::support_feature("velocityBlocksOnCollision")
@@ -495,8 +496,15 @@ impl Simulator {
         let yaw = std::f32::consts::PI - entity.state.yaw;
         let (sin, cos) = yaw.sin_cos();
 
-        entity.state.velocity.x += strafe * cos - forward * sin;
-        entity.state.velocity.z += forward * cos + strafe * sin;
+        if sin >= std::f32::EPSILON {
+            entity.state.velocity.x += strafe * cos - forward * sin;
+        }
+
+        if cos >= std::f32::EPSILON {
+            entity.state.velocity.z += forward * cos + strafe * sin;
+        }
+       
+      
     }
 
     fn is_on_ladder(
@@ -532,11 +540,11 @@ impl Simulator {
         world: &impl World, /*prismarine-world*/
     ) -> bool {
         let q_bb_fl = query_bb.floored();
-        let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY, q_bb_fl.minZ);
+        let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y, q_bb_fl.min_z);
 
-        while cursor.y <= q_bb_fl.maxY {
-            while cursor.z <= q_bb_fl.maxZ {
-                while cursor.x <= q_bb_fl.maxX {
+        while cursor.y <= q_bb_fl.max_y {
+            while cursor.z <= q_bb_fl.max_z {
+                while cursor.x <= q_bb_fl.max_x {
                     let block = world.get_block(&cursor);
                     if block.is_some_and(|b| b.b_type == b_type) {
                         return true;
@@ -559,10 +567,10 @@ impl Simulator {
     ) -> Vec<Block> {
         let mut water_blocks = vec![];
         let q_bb_fl = query_bb.floored();
-        let mut cursor = glam::Vec3A::new(q_bb_fl.minX, q_bb_fl.minY - 1.0, q_bb_fl.minZ);
-        while cursor.y <= q_bb_fl.maxY {
-            while cursor.z <= q_bb_fl.maxZ {
-                while cursor.x <= q_bb_fl.maxX {
+        let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y - 1.0, q_bb_fl.min_z);
+        while cursor.y <= q_bb_fl.max_y {
+            while cursor.z <= q_bb_fl.max_z {
+                while cursor.x <= q_bb_fl.max_x {
                     if let Some(block) = world.get_block(&cursor) {
                         if block.b_type == self.water_id
                             || self.water_like.contains(&block.b_type)
@@ -570,7 +578,7 @@ impl Simulator {
                         {
                             let water_level =
                                 cursor.y + 1.0 - self.get_liquid_height_percent(&block);
-                            if query_bb.maxY.ceil() >= water_level {
+                            if query_bb.max_y.ceil() >= water_level {
                                 water_blocks.push(block);
                             }
                         }
@@ -607,14 +615,14 @@ impl Simulator {
         let curlevel = self.get_rendered_depth(block);
         let mut flow = glam::Vec3A::splat(0.0);
         for [dx, dz] in [[0.0, 1.0], [-1.0, 0.0], [0.0, -1.0], [1.0, 0.0]] {
-            if let Some(adj_block) = world.get_block(&glamOffset(&block.position, dx, 0.0, dz)) {
+            if let Some(adj_block) = world.get_block(&glam_offset(&block.position, dx, 0.0, dz)) {
                 let adj_level: f32 = self.get_rendered_depth(&adj_block);
 
                 // if block is not water.
                 if adj_level < 0.0 {
                     if adj_block.bounding_box != "empty" {
                         if let Some(adj_block) =
-                            world.get_block(&glamOffset(&block.position, dx, -1.0, dz))
+                            world.get_block(&glam_offset(&block.position, dx, -1.0, dz))
                         {
                             let adj_level = self.get_rendered_depth(&adj_block);
                             if adj_level >= 0.0 {
@@ -637,8 +645,8 @@ impl Simulator {
         if block.metadata >= 8 {
             for [dx, dz] in [[0.0, 1.0], [-1.0, 0.0], [0.0, -1.0], [1.0, 0.0]] {
                 {
-                    let adj_block = world.get_block(&glamOffset(&block.position, dx, 0.0, dz));
-                    let adj_up_block = world.get_block(&glamOffset(&block.position, dx, 1.0, dz));
+                    let adj_block = world.get_block(&glam_offset(&block.position, dx, 0.0, dz));
+                    let adj_up_block = world.get_block(&glam_offset(&block.position, dx, 1.0, dz));
                     if adj_block.is_some_and(|b| b.bounding_box != "empty")
                         || adj_up_block.is_some_and(|b| b.bounding_box != "empty")
                     {
@@ -689,7 +697,7 @@ impl Simulator {
             return;
         }
 
-        let mut vel = entity.state.velocity;
+        let _vel = entity.state.velocity;
         let pos = entity.state.position;
 
         let gravity_multiplier = if entity.state.velocity.y <= 0.0 && entity.state.slow_falling > 0
@@ -703,7 +711,7 @@ impl Simulator {
         if !entity.state.is_in_water && !entity.state.is_in_lava {
             let mut acceleration = physics_settings::airborneAcceleration;
             let mut inertia = physics_settings::airborneInertia;
-            if let Some(block_under) = world.get_block(&vec3a(
+            if let Some(block_under) = world.get_block(&glam::Vec3A::new(
                 entity.state.velocity.x,
                 entity.state.velocity.y - 1.0,
                 entity.state.velocity.z,
@@ -790,6 +798,7 @@ impl Simulator {
                         });
             }
 
+          
             self.move_entity(
                 entity,
                 entity.state.velocity.x,
@@ -830,8 +839,6 @@ impl Simulator {
 
             entity.state.velocity.x *= inertia;
             entity.state.velocity.z *= inertia;
-
-            println!("should have shit: {}", entity.gravity);
         } else {
             // Water / Lava movement
             let last_y = pos.y;
@@ -857,7 +864,7 @@ impl Simulator {
                     horizontal_inertia = 0.96;
                 }
             }
-
+ 
             Self::apply_heading(entity, strafe, forward, acceleration);
             self.move_entity(
                 entity,
@@ -946,7 +953,7 @@ impl Simulator {
                     // originally Math.fround(0.4);
                     entity.state.velocity.y += 0.4000000059604645;
                 } else if entity.state.on_ground && entity.state.jump_ticks == 0 {
-                    let block_below = world.get_block(&glamOffset(
+                    let block_below = world.get_block(&glam_offset(
                         &entity.state.position.clone().floor(),
                         0.0,
                         -0.5,

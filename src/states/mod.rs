@@ -105,12 +105,12 @@ impl EntityState {
     pub fn get_bb(&self) -> AABB {
         let w = self.half_width;
         return AABB {
-            minX: self.position.x - w,
-            minY: self.position.y,
-            minZ: self.position.z - w,
-            maxX: self.position.x + w,
-            maxY: self.position.y + self.height,
-            maxZ: self.position.z + w,
+            min_x: self.position.x - w,
+            min_y: self.position.y,
+            min_z: self.position.z - w,
+            max_x: self.position.x + w,
+            max_y: self.position.y + self.height,
+            max_z: self.position.z + w,
         };
     }
 
@@ -119,12 +119,12 @@ impl EntityState {
         let tmp = self.pose.get_info();
         let w = tmp.width / 2.0;
         return AABB {
-            minX: self.position.x - w,
-            minY: self.position.y,
-            minZ: self.position.z - w,
-            maxX: self.position.x + w,
-            maxY: self.position.y + tmp.height,
-            maxZ: self.position.z + w,
+            min_x: self.position.x - w,
+            min_y: self.position.y,
+            min_z: self.position.z - w,
+            max_x: self.position.x + w,
+            max_y: self.position.y + tmp.height,
+            max_z: self.position.z + w,
         };
     }
 }
