@@ -1,86 +1,5 @@
 pub mod physics_settings;
 
-#[derive(Clone, Copy)]
-pub struct WidthAndHeight {
-    pub(crate) width: f32,
-    pub(crate) height: f32,
-}
-
-pub const PLAYER_POSE_CONTEXT: [WidthAndHeight; 8] = [
-    WidthAndHeight {
-        width: 0.6,
-        height: 1.8,
-    },
-    WidthAndHeight {
-        width: 0.2,
-        height: 0.2,
-    },
-    WidthAndHeight {
-        width: 0.6,
-        height: 0.6,
-    },
-    WidthAndHeight {
-        width: 0.6,
-        height: 1.8,
-    },
-    WidthAndHeight {
-        width: 0.6,
-        height: 1.8,
-    },
-    WidthAndHeight {
-        width: 0.6,
-        height: 1.8,
-    },
-    WidthAndHeight {
-        width: 0.6,
-        height: 1.5,
-    },
-    WidthAndHeight {
-        width: 0.2,
-        height: 0.2,
-    },
-];
-
-/// I'm not sure whether or not self is a performance issue.
-/// I'll look into it later.
-#[repr(usize)]
-#[derive(Clone, Copy)]
-pub enum PlayerPoses {
-    Standing,
-    FallFlying,
-    Sleeping,
-    Swimming,
-    SpinAttack, // dunno
-    Sneaking,
-    LongJumping,
-    Dying,
-}
-
-impl Default for PlayerPoses {
-    fn default() -> Self {
-        Self::Standing
-    }
-}
-
-impl PlayerPoses {
-    #[inline]
-    pub fn get_info(self) -> WidthAndHeight {
-        return PLAYER_POSE_CONTEXT[self as usize];
-    }
-}
-
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
-pub struct ControlStateHandler {
-    pub forward: bool,
-    pub back: bool,
-    pub left: bool,
-    pub right: bool,
-    pub jump: bool,
-    pub sprint: bool,
-    pub sneak: bool,
-}
-
-impl ControlStateHandler {}
 
 #[derive(Clone, Default)]
 pub struct PlayerAttributeModifier {
@@ -98,7 +17,7 @@ pub struct PlayerAttribute {
 
 // note: move this to a mod instead of impl here.
 impl PlayerAttribute {
-    pub fn createAttributeValue(base: f32) -> Self {
+    pub fn create_attribute_value(base: f32) -> Self {
         Self {
             value: base,
             modifiers: vec![],
@@ -106,7 +25,7 @@ impl PlayerAttribute {
     }
 
     /// assumed decimal point wanted.
-    pub fn getAttributeValue(prop: PlayerAttribute) -> f32 {
+    pub fn get_attribute_value(prop: PlayerAttribute) -> f32 {
         let mut x = prop.value;
         for m in &prop.modifiers {
             if m.operation != 0 {
@@ -130,12 +49,12 @@ impl PlayerAttribute {
         return y;
     }
 
-    pub fn addAttributeModifier(mut attributes: PlayerAttribute, modifier: PlayerAttributeModifier) -> PlayerAttribute {
+    pub fn add_attribute_modifier(mut attributes: PlayerAttribute, modifier: PlayerAttributeModifier) -> PlayerAttribute {
         attributes.modifiers.push(modifier);
         return attributes;
     }
 
-    pub fn checkAttributeModifier(attributes: &PlayerAttribute, uuid: &str) -> bool {
+    pub fn check_attribute_modifier(attributes: &PlayerAttribute, uuid: &str) -> bool {
         return attributes
             .modifiers
             .iter()
@@ -143,7 +62,7 @@ impl PlayerAttribute {
             .is_some();
     }
 
-    pub fn deleteAttributeModifier(mut attributes: PlayerAttribute, uuid: &str) -> PlayerAttribute {
+    pub fn delete_attribute_modifier(mut attributes: PlayerAttribute, uuid: &str) -> PlayerAttribute {
         attributes.modifiers = attributes
             .modifiers
             .into_iter()

@@ -1,14 +1,9 @@
 extern crate minecraft_physics;
 
 mod tests {
-    use minecraft_physics::{
-        settings::{self, ControlStateHandler},
-        simulator::{self, World},
-        states::{
-            self,
-            physics_context::{CollisionBehavior, EntityType},
-        },
-    };
+
+
+    use minecraft_physics::{simulator::{World, self}, states::{self, player_context::ControlStateHandler, physics_context::{CollisionBehavior, EntityType}}};
 
     use super::*;
 
@@ -67,7 +62,7 @@ mod tests {
             entity,
             collision_behavior,
             entity_type,
-            settings::PlayerPoses::Standing,
+            states::player_context::PlayerPoses::Standing,
             true,
             0.6, // player
             0.08,

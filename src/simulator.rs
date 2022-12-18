@@ -1,11 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use glam::vec3a;
-
 use crate::{
     calc::aabb::AABB,
-    settings::{physics_settings, PlayerAttribute, PlayerAttributeModifier},
-    states::physics_context::EntityPhysicsContext,
+    settings::{physics_settings, PlayerAttribute, PlayerAttributeModifier}, states::physics_context::EntityPhysicsContext,
 };
 
 /// Temporary
@@ -71,7 +68,7 @@ pub struct Simulator {
 fn glam_offset(org: &glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
     glam::Vec3A::new(org.x + x, org.y + y, org.z + z)
 }
-fn glamTranslate(mut org: glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
+fn glam_translate(mut org: glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
     org.x += x;
     org.y += y;
     org.z += z;
@@ -108,6 +105,7 @@ impl Simulator {
         let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y - 0.251, q_bb_fl.min_z);
 
         while cursor.z <= q_bb_fl.max_z {
+            cursor.x = q_bb_fl.min_x;
             while cursor.x <= q_bb_fl.max_x {
                 if let Some(block) = world.get_block(&cursor) {
                     let b_pos = block.position;
@@ -416,11 +414,11 @@ impl Simulator {
                             && Self::support_feature("velocityBlocksOnCollision")
                         {
                             if block.b_type == self.soulsand_id {
-                                entity.state.velocity.x *= physics_settings::soulsandSpeed;
-                                entity.state.velocity.z *= physics_settings::soulsandSpeed;
+                                entity.state.velocity.x *= physics_settings::SOUL_SAND_SPEED;
+                                entity.state.velocity.z *= physics_settings::SOUL_SAND_SPEED;
                             } else if block.b_type == self.honeyblock_id {
-                                entity.state.velocity.x *= physics_settings::honeyblockSpeed;
-                                entity.state.velocity.z *= physics_settings::honeyblockSpeed;
+                                entity.state.velocity.x *= physics_settings::HONEY_BLOCK_SPEED;
+                                entity.state.velocity.z *= physics_settings::HONEY_BLOCK_SPEED;
                             }
                         }
                         if block.b_type == self.web_id {
@@ -436,9 +434,9 @@ impl Simulator {
                             ));
 
                             let bubble_drag = if above_block.is_some_and(|b| b.b_type == 0) {
-                                physics_settings::bubbleColumnSurfaceDrag
+                                physics_settings::BUBBLE_COLUMN_SURFACE_DRAG
                             } else {
-                                physics_settings::bubbleColumnDrag
+                                physics_settings::BUBBLE_COLUMN_DRAG
                             };
 
                             if down {
@@ -464,11 +462,11 @@ impl Simulator {
             if let Some(block_below) = world.get_block(&glam::Vec3A::new(tmp.x, tmp.y - 0.5, tmp.z))
             {
                 if block_below.b_type == self.soulsand_id {
-                    entity.state.velocity.x *= physics_settings::soulsandSpeed;
-                    entity.state.velocity.z *= physics_settings::soulsandSpeed;
+                    entity.state.velocity.x *= physics_settings::SOUL_SAND_SPEED;
+                    entity.state.velocity.z *= physics_settings::SOUL_SAND_SPEED;
                 } else if block_below.b_type == self.honeyblock_id {
-                    entity.state.velocity.x *= physics_settings::honeyblockSpeed;
-                    entity.state.velocity.z *= physics_settings::honeyblockSpeed;
+                    entity.state.velocity.x *= physics_settings::HONEY_BLOCK_SPEED;
+                    entity.state.velocity.z *= physics_settings::HONEY_BLOCK_SPEED;
                 }
             }
         }
@@ -650,7 +648,7 @@ impl Simulator {
                     if adj_block.is_some_and(|b| b.bounding_box != "empty")
                         || adj_up_block.is_some_and(|b| b.bounding_box != "empty")
                     {
-                        flow = glamTranslate(flow.normalize(), 0.0, -6.0, 0.0);
+                        flow = glam_translate(flow.normalize(), 0.0, -6.0, 0.0);
                     }
                 }
             }
@@ -702,15 +700,15 @@ impl Simulator {
 
         let gravity_multiplier = if entity.state.velocity.y <= 0.0 && entity.state.slow_falling > 0
         {
-            physics_settings::slowFalling
+            physics_settings::SLOW_FALLING
         } else {
             1.0
         };
 
         // Unsure how to handle this w/ other entities.
         if !entity.state.is_in_water && !entity.state.is_in_lava {
-            let mut acceleration = physics_settings::airborneAcceleration;
-            let mut inertia = physics_settings::airborneInertia;
+            let mut acceleration = physics_settings::AIRBORNE_ACCELERATION;
+            let mut inertia = physics_settings::AIRBORNE_INERTIA;
             if let Some(block_under) = world.get_block(&glam::Vec3A::new(
                 entity.state.velocity.x,
                 entity.state.velocity.y - 1.0,
@@ -735,25 +733,25 @@ impl Simulator {
                         // Create an attribute if the player does not have it
                         //TODO: Generalize to all entities.
                         player_speed_attribute =
-                            PlayerAttribute::createAttributeValue(physics_settings::playerSpeed);
+                            PlayerAttribute::create_attribute_value(physics_settings::PLAYER_SPEED);
                     }
                     // Client-side sprinting (don't rely on server-side sprinting)
                     // setSprinting in LivingEntity.java
                     //TODO: Generalize to all entities.
-                    player_speed_attribute = PlayerAttribute::deleteAttributeModifier(
+                    player_speed_attribute = PlayerAttribute::delete_attribute_modifier(
                         player_speed_attribute,
-                        &physics_settings::sprintingUUID,
+                        &physics_settings::SPRINTING_UUID,
                     ); // always delete sprinting (if it exists)
                     if entity.state.control_states.sprint {
-                        if !PlayerAttribute::checkAttributeModifier(
+                        if !PlayerAttribute::check_attribute_modifier(
                             &player_speed_attribute,
-                            &physics_settings::sprintingUUID,
+                            &physics_settings::SPRINTING_UUID,
                         ) {
-                            player_speed_attribute = PlayerAttribute::addAttributeModifier(
+                            player_speed_attribute = PlayerAttribute::add_attribute_modifier(
                                 player_speed_attribute,
                                 PlayerAttributeModifier {
-                                    uuid: physics_settings::sprintingUUID.to_string(),
-                                    amount: physics_settings::sprintSpeed,
+                                    uuid: physics_settings::SPRINTING_UUID.to_string(),
+                                    amount: physics_settings::SPRINT_SPEED,
                                     operation: 2,
                                 },
                             );
@@ -761,12 +759,12 @@ impl Simulator {
                     }
                     // Calculate what the speed is (0.1 if no modification)
                     let attribute_speed =
-                        PlayerAttribute::getAttributeValue(player_speed_attribute);
+                        PlayerAttribute::get_attribute_value(player_speed_attribute);
 
                     inertia = self
                         .block_slipperiness
                         .get(&block_under.b_type)
-                        .unwrap_or(&physics_settings::defaultSlipperiness)
+                        .unwrap_or(&physics_settings::DEFAULT_SLIPPERINESS)
                         * 0.91;
                     acceleration = attribute_speed * (0.1627714 / (inertia * inertia * inertia));
                     if acceleration < 0.0 {
@@ -780,12 +778,12 @@ impl Simulator {
             if entity.collision_behavior.block_effects
                 && self.is_on_ladder(&entity.state.position, world)
             {
-                entity.state.velocity.x = (-physics_settings::ladderMaxSpeed)
+                entity.state.velocity.x = (-physics_settings::LADDER_MAX_SPEED)
                     .min(entity.state.velocity.x)
-                    .max(physics_settings::ladderMaxSpeed);
-                entity.state.velocity.z = (-physics_settings::ladderMaxSpeed)
+                    .max(physics_settings::LADDER_MAX_SPEED);
+                entity.state.velocity.z = (-physics_settings::LADDER_MAX_SPEED)
                     .min(entity.state.velocity.z)
-                    .max(physics_settings::ladderMaxSpeed);
+                    .max(physics_settings::LADDER_MAX_SPEED);
                 entity.state.velocity.y =
                     entity
                         .state
@@ -794,7 +792,7 @@ impl Simulator {
                         .max(if entity.state.control_states.sneak {
                             0.0
                         } else {
-                            -physics_settings::ladderMaxSpeed
+                            -physics_settings::LADDER_MAX_SPEED
                         });
             }
 
@@ -813,7 +811,7 @@ impl Simulator {
                     || (Self::support_feature("climbUsingJump")
                         && entity.state.control_states.jump))
             {
-                entity.state.velocity.y = physics_settings::ladderClimbSpeed; // climb ladder
+                entity.state.velocity.y = physics_settings::LADDER_CLIMB_SPEED; // climb ladder
             }
 
             // Not adding an additional function call. No point.
@@ -842,11 +840,11 @@ impl Simulator {
         } else {
             // Water / Lava movement
             let last_y = pos.y;
-            let mut acceleration = physics_settings::liquidAcceleration;
+            let mut acceleration = physics_settings::LIQUID_ACCELERATION;
             let inertia = if entity.state.is_in_water {
-                physics_settings::waterInertia
+                physics_settings::WATER_INERTIA
             } else {
-                physics_settings::lavaInertia
+                physics_settings::LAVA_INERTIA
             };
             let mut horizontal_inertia = inertia;
 
@@ -902,7 +900,7 @@ impl Simulator {
                     world,
                 )
             {
-                entity.state.velocity.y = physics_settings::outOfLiquidImpulse; // jump out of liquid
+                entity.state.velocity.y = physics_settings::OUT_OF_LIQUID_IMPULSE; // jump out of liquid
             }
         }
     }
@@ -933,13 +931,13 @@ impl Simulator {
         entity.state.is_in_lava = Self::is_material_in_bb(&lava_bb, self.lava_id, world);
 
         // Reset velocity component if it falls under the threshold
-        if entity.state.velocity.x.abs() < physics_settings::negligeableVelocity {
+        if entity.state.velocity.x.abs() < physics_settings::NEGLIGEABLE_VELOCITY {
             entity.state.velocity.x = 0.0;
         }
-        if entity.state.velocity.y.abs() < physics_settings::negligeableVelocity {
+        if entity.state.velocity.y.abs() < physics_settings::NEGLIGEABLE_VELOCITY {
             entity.state.velocity.y = 0.0;
         }
-        if entity.state.velocity.z.abs() < physics_settings::negligeableVelocity {
+        if entity.state.velocity.z.abs() < physics_settings::NEGLIGEABLE_VELOCITY {
             entity.state.velocity.z = 0.0;
         }
 
@@ -962,7 +960,7 @@ impl Simulator {
                     // 0.41999998688697815 originally Math.fround(0.42)
                     entity.state.velocity.y = 0.41999998688697815
                         * (if block_below.is_some_and(|b| b.b_type == self.honeyblock_id) {
-                            physics_settings::honeyblockJumpSpeed
+                            physics_settings::HONEY_BLOCK_JUMP_SPEED
                         } else {
                             1.0
                         });
@@ -975,7 +973,7 @@ impl Simulator {
                         entity.state.velocity.x -= yaw.sin() * 0.2;
                         entity.state.velocity.z += yaw.cos() * 0.2;
                     }
-                    entity.state.jump_ticks = physics_settings::autojumpCooldown;
+                    entity.state.jump_ticks = physics_settings::AUTO_JUMP_COOLDOWN;
                 }
             } else {
                 entity.state.jump_ticks = 0; // reset autojump cooldown
@@ -990,16 +988,16 @@ impl Simulator {
                 * 0.98;
 
             if entity.state.control_states.sneak {
-                strafe *= physics_settings::sneakSpeed;
-                forward *= physics_settings::sneakSpeed;
+                strafe *= physics_settings::SNEAK_SPEED;
+                forward *= physics_settings::SNEAK_SPEED;
                 entity.state.control_states.sprint = false;
             }
 
             // this is not good enough. Different items slow you down differently.
             // patch this later.
             if entity.state.is_using_item {
-                strafe *= physics_settings::usingItemSpeed;
-                forward *= physics_settings::usingItemSpeed;
+                strafe *= physics_settings::USING_ITEM_SPEED;
+                forward *= physics_settings::USING_ITEM_SPEED;
                 entity.state.control_states.sprint = false;
             }
 

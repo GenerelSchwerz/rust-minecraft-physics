@@ -1,11 +1,13 @@
-mod entity_physics_ctx;
-pub use entity_physics_ctx::physics_context;
+pub mod physics_context;
+pub mod player_context;
 
 use std::collections::HashMap;
 
 use inter_struct::prelude::*;
 
-use crate::{calc::aabb::AABB, settings::{PlayerPoses, ControlStateHandler, PlayerAttribute}};
+use crate::{settings::PlayerAttribute, calc::aabb::AABB};
+
+use self::player_context::{PlayerPoses, ControlStateHandler};
 
 
 
