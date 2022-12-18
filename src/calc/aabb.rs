@@ -22,6 +22,7 @@ impl AABB {
         }
     }
 
+    #[inline]
     pub fn floor(&mut self) {
         self.min_x = self.min_x.floor();
         self.min_y = self.min_y.floor();
@@ -31,6 +32,7 @@ impl AABB {
         self.max_z = self.max_z.floor();
     }
 
+    #[inline]
     pub fn floored(&self) -> Self {
         Self {
             min_x: self.min_x.floor(),
@@ -42,6 +44,7 @@ impl AABB {
         }
     }
 
+    #[inline]
     pub fn extend(mut self, dx: f32, dy: f32, dz: f32) -> Self {
         if dx < 0.0 {
             self.min_x += dx
@@ -62,6 +65,7 @@ impl AABB {
         return self;
     }
 
+    #[inline]
     pub fn contract(mut self, x: f32, y: f32, z: f32) -> Self {
         self.min_x += x;
         self.min_y += y;
@@ -72,6 +76,7 @@ impl AABB {
         return self;
     }
 
+    #[inline]
     pub fn expand(mut self, x: f32, y: f32, z: f32) -> Self {
         self.min_x -= x;
         self.min_y -= y;
@@ -82,16 +87,14 @@ impl AABB {
         return self;
     }
 
+    #[inline]
     pub fn offset(mut self, x: f32, y: f32, z: f32) -> Self {
-  
         self.min_x += x;
         self.min_y += y;
         self.min_z += z;
         self.max_x += x;
         self.max_y += y;
         self.max_z += z;
-
-   
         return self;
     }
 

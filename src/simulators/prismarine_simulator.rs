@@ -2,55 +2,14 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     calc::aabb::AABB,
-    settings::{physics_settings, PlayerAttribute, PlayerAttributeModifier}, states::physics_context::EntityPhysicsContext,
+    settings::{physics_settings, PlayerAttribute, PlayerAttributeModifier},
+    states::physics_context::EntityPhysicsContext,
 };
 
-/// Temporary
-#[derive(Default)]
-pub struct Block {
-    // original = type: u32
-    pub(crate) bounding_box: String,
-    pub(crate) metadata: u32,
-    pub(crate) b_type: u32,
-    pub(crate) position: glam::Vec3A,
-    pub(crate) shapes: Vec<[f32; 6]>,
-}
-
-impl Block {
-    pub fn test_new(
-        bounding_box: String,
-        metadata: u32,
-        b_type: u32,
-        position: glam::Vec3A,
-        shapes: Vec<[f32; 6]>,
-    ) -> Self {
-        Self {
-            bounding_box,
-            metadata,
-            b_type,
-            position,
-            shapes,
-        }
-    }
-}
+use super::{Block, World};
 
 #[derive(Default)]
-pub struct BlockProps {
-    waterlogged: bool,
-}
-
-impl Block {
-    pub fn get_properties(&self) -> BlockProps {
-        BlockProps::default()
-    }
-}
-
-pub trait World {
-    fn get_block(&self, pos: &glam::Vec3A) -> Option<Block>;
-}
-
-#[derive(Default)]
-pub struct Simulator {
+pub struct PrismarineSimulator {
     slime_block_id: u32,
     soulsand_id: u32,
     web_id: u32,
@@ -75,7 +34,7 @@ fn glam_translate(mut org: glam::Vec3A, x: f32, y: f32, z: f32) -> glam::Vec3A {
     return org;
 }
 
-impl Simulator {
+impl PrismarineSimulator {
     fn support_feature(_key: &str) -> bool {
         return false;
     }
@@ -86,7 +45,6 @@ impl Simulator {
 
     fn set_pos_to_bb_center_bottom(entity: &mut EntityPhysicsContext, bb: &AABB) {
         // println!("{} {:?}", entity.state.position, bb);
-
 
         let half_width = entity.get_half_width();
         entity.state.position.x = bb.min_x + half_width;
@@ -125,7 +83,6 @@ impl Simulator {
     }
 
     pub fn get_surrounding_block_bbs(query_bb: &AABB, world: &impl World) -> Vec<AABB> {
-       
         let mut surrounding_bbs = vec![];
         let q_bb_fl = query_bb.floored();
         let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y - 1.0, q_bb_fl.min_z);
@@ -139,7 +96,8 @@ impl Simulator {
                         for shape in block.shapes {
                             let bb = AABB::new(
                                 shape[0], shape[1], shape[2], shape[3], shape[4], shape[5],
-                            ).offset(b_pos.x, b_pos.y, b_pos.z);
+                            )
+                            .offset(b_pos.x, b_pos.y, b_pos.z);
                             surrounding_bbs.push(bb);
                         }
                     }
@@ -407,7 +365,9 @@ impl Simulator {
         let mut cursor = glam::Vec3A::new(p_bb_fl.min_x, p_bb_fl.min_y, p_bb_fl.min_z);
 
         while cursor.y <= p_bb_fl.max_y {
+            cursor.z = p_bb_fl.min_z;
             while cursor.z <= p_bb_fl.max_z {
+                cursor.x = p_bb_fl.min_x;
                 while cursor.x <= p_bb_fl.max_x {
                     if let Some(block) = world.get_block(&cursor) {
                         if entity.collision_behavior.block_effects
@@ -494,15 +454,13 @@ impl Simulator {
         let yaw = std::f32::consts::PI - entity.state.yaw;
         let (sin, cos) = yaw.sin_cos();
 
-        if sin >= std::f32::EPSILON {
+        if sin >= f32::EPSILON {
             entity.state.velocity.x += strafe * cos - forward * sin;
         }
 
-        if cos >= std::f32::EPSILON {
+        if cos >= f32::EPSILON {
             entity.state.velocity.z += forward * cos + strafe * sin;
         }
-       
-      
     }
 
     fn is_on_ladder(
@@ -541,7 +499,9 @@ impl Simulator {
         let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y, q_bb_fl.min_z);
 
         while cursor.y <= q_bb_fl.max_y {
+            cursor.z = q_bb_fl.min_z;
             while cursor.z <= q_bb_fl.max_z {
+                cursor.x = q_bb_fl.min_x;
                 while cursor.x <= q_bb_fl.max_x {
                     let block = world.get_block(&cursor);
                     if block.is_some_and(|b| b.b_type == b_type) {
@@ -567,7 +527,9 @@ impl Simulator {
         let q_bb_fl = query_bb.floored();
         let mut cursor = glam::Vec3A::new(q_bb_fl.min_x, q_bb_fl.min_y - 1.0, q_bb_fl.min_z);
         while cursor.y <= q_bb_fl.max_y {
+            cursor.z = q_bb_fl.min_z;
             while cursor.z <= q_bb_fl.max_z {
+                cursor.x = q_bb_fl.min_x;
                 while cursor.x <= q_bb_fl.max_x {
                     if let Some(block) = world.get_block(&cursor) {
                         if block.b_type == self.water_id
@@ -796,7 +758,6 @@ impl Simulator {
                         });
             }
 
-          
             self.move_entity(
                 entity,
                 entity.state.velocity.x,
@@ -849,11 +810,12 @@ impl Simulator {
             let mut horizontal_inertia = inertia;
 
             if entity.state.is_in_water {
-                let mut strider = entity.state.depth_strider.min(3);
+                let mut strider = entity.state.depth_strider.min(3) as f32;
+
                 if !entity.state.on_ground {
-                    strider /= 2; // originally * 0.5, not... too sure what this does. Swimming?
+                    strider *= 0.5; // originally * 0.5, not... too sure what this does. Swimming?
                 }
-                if strider > 0 {
+                if strider > f32::EPSILON {
                     horizontal_inertia += ((0.546 - horizontal_inertia) * strider as f32) / 3.0;
                     acceleration += ((0.7 - acceleration) * strider as f32) / 3.0;
                 }
@@ -862,7 +824,7 @@ impl Simulator {
                     horizontal_inertia = 0.96;
                 }
             }
- 
+
             Self::apply_heading(entity, strafe, forward, acceleration);
             self.move_entity(
                 entity,
@@ -900,7 +862,8 @@ impl Simulator {
                     world,
                 )
             {
-                entity.state.velocity.y = physics_settings::OUT_OF_LIQUID_IMPULSE; // jump out of liquid
+                entity.state.velocity.y = physics_settings::OUT_OF_LIQUID_IMPULSE;
+                // jump out of liquid
             }
         }
     }

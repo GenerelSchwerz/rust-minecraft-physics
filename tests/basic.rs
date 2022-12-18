@@ -3,7 +3,7 @@ extern crate minecraft_physics;
 mod tests {
 
 
-    use minecraft_physics::{simulator::{World, self}, states::{self, player_context::ControlStateHandler, physics_context::{CollisionBehavior, EntityType}}};
+    use minecraft_physics::{states::{self, player_context::ControlStateHandler, physics_context::{CollisionBehavior, EntityType}}, simulators::{self, World}};
 
     use super::*;
 
@@ -12,10 +12,10 @@ mod tests {
     }
 
     impl World for TestWorld {
-        fn get_block(&self, pos: &glam::Vec3A) -> Option<simulator::Block> {
+        fn get_block(&self, pos: &glam::Vec3A) -> Option<simulators::Block> {
             // None
             if pos.y as u32 > self.stone_height {
-                Some(simulator::Block::test_new(
+                Some(simulators::Block::test_new(
                     "empty".to_string(),
                     0,
                     1,
@@ -23,7 +23,7 @@ mod tests {
                     vec![],
                 ))
             } else {
-                Some(simulator::Block::test_new(
+                Some(simulators::Block::test_new(
                     "block".to_string(),
                     0,
                     2,
@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        let sim = simulator::Simulator::default();
+        let sim = simulators::prismarine_simulator::PrismarineSimulator::default();
 
         let world = TestWorld { stone_height: 60 };
 
