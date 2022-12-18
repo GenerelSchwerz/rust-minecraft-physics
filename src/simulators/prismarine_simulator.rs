@@ -110,6 +110,7 @@ impl PrismarineSimulator {
         return surrounding_bbs;
     }
 
+    #[allow(dead_code)]
     fn adjust_pos_height(
         &self,
         entity: &mut EntityPhysicsContext,
@@ -163,7 +164,7 @@ impl PrismarineSimulator {
         if entity.use_controls && entity.state.control_states.sneak && entity.state.on_ground {
             let step = 0.05;
 
-            // In the 3 loops bellow, y offset should be -1, but that doesnt reproduce vanilla behavior.
+            // In the 3 loops below, y offset should be -1, but that doesnt reproduce vanilla behavior.
             while dx != 0.0
                 && Self::get_surrounding_block_bbs(
                     &entity.get_current_bb_with_pose().offset(dx, 0.0, 0.0),
@@ -672,9 +673,9 @@ impl PrismarineSimulator {
             let mut acceleration = physics_settings::AIRBORNE_ACCELERATION;
             let mut inertia = physics_settings::AIRBORNE_INERTIA;
             if let Some(block_under) = world.get_block(&glam::Vec3A::new(
-                entity.state.velocity.x,
-                entity.state.velocity.y - 1.0,
-                entity.state.velocity.z,
+                entity.state.position.x,
+                entity.state.position.y - 1.0,
+                entity.state.position.z,
             )) {
                 if entity.state.on_ground {
                     let mut player_speed_attribute: PlayerAttribute;
@@ -741,11 +742,11 @@ impl PrismarineSimulator {
                 && self.is_on_ladder(&entity.state.position, world)
             {
                 entity.state.velocity.x = (-physics_settings::LADDER_MAX_SPEED)
-                    .min(entity.state.velocity.x)
-                    .max(physics_settings::LADDER_MAX_SPEED);
+                    .max(entity.state.velocity.x)
+                    .min(physics_settings::LADDER_MAX_SPEED);
                 entity.state.velocity.z = (-physics_settings::LADDER_MAX_SPEED)
-                    .min(entity.state.velocity.z)
-                    .max(physics_settings::LADDER_MAX_SPEED);
+                    .max(entity.state.velocity.z)
+                    .min(physics_settings::LADDER_MAX_SPEED);
                 entity.state.velocity.y =
                     entity
                         .state
@@ -803,9 +804,9 @@ impl PrismarineSimulator {
             let last_y = pos.y;
             let mut acceleration = physics_settings::LIQUID_ACCELERATION;
             let inertia = if entity.state.is_in_water {
-                physics_settings::WATER_INERTIA
+                entity.water_inertia
             } else {
-                physics_settings::LAVA_INERTIA
+                entity.lava_inertia
             };
             let mut horizontal_inertia = inertia;
 
@@ -815,7 +816,7 @@ impl PrismarineSimulator {
                 if !entity.state.on_ground {
                     strider *= 0.5; // originally * 0.5, not... too sure what this does. Swimming?
                 }
-                if strider > f32::EPSILON {
+                if strider >= f32::EPSILON {
                     horizontal_inertia += ((0.546 - horizontal_inertia) * strider as f32) / 3.0;
                     acceleration += ((0.7 - acceleration) * strider as f32) / 3.0;
                 }
@@ -933,8 +934,13 @@ impl PrismarineSimulator {
                     if entity.state.control_states.sprint {
                         let yaw = std::f32::consts::PI - entity.state.yaw;
 
-                        entity.state.velocity.x -= yaw.sin() * 0.2;
-                        entity.state.velocity.z += yaw.cos() * 0.2;
+                        let (vx, vz) = yaw.sin_cos();
+                        if vx >= f32::EPSILON {
+                            entity.state.velocity.x -= yaw.sin() * 0.2;
+                        }
+                        if vz >= f32::EPSILON {
+                            entity.state.velocity.z += yaw.cos() * 0.2;
+                        }
                     }
                     entity.state.jump_ticks = physics_settings::AUTO_JUMP_COOLDOWN;
                 }

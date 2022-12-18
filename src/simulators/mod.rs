@@ -1,3 +1,5 @@
+use crate::states::physics_context::EntityPhysicsContext;
+
 pub mod prismarine_simulator;
 pub mod gen_simulator;
 
@@ -43,4 +45,10 @@ impl Block {
 
 pub trait World {
     fn get_block(&self, pos: &glam::Vec3A) -> Option<Block>;
+}
+
+
+pub trait Simulator {
+
+    fn simulate(&self, ctx: EntityPhysicsContext, world: &impl World) -> EntityPhysicsContext;
 }

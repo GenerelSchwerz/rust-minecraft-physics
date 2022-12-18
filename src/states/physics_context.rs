@@ -59,7 +59,9 @@ pub struct EntityPhysicsContext {
     pub(crate) step_height: f32,
     pub(crate) gravity: f32,
     pub(crate) water_gravity: f32,
+    pub(crate) water_inertia: f32,
     pub(crate) lava_gravity: f32,
+    pub(crate) lava_inertia: f32,
     pub(crate) airdrag: f32,
     pub(crate) gravity_then_drag: bool,
 }
@@ -74,7 +76,9 @@ impl EntityPhysicsContext {
         step_height: f32,
         gravity: f32,
         water_gravity: f32,
+        water_inertia: f32,
         lava_gravity: f32,
+        lava_inertia: f32,
         airdrag: f32,
         gravity_then_drag: bool,
     ) -> Self {
@@ -87,7 +91,9 @@ impl EntityPhysicsContext {
             step_height,
             gravity,
             water_gravity,
+            water_inertia,
             lava_gravity,
+            lava_inertia,
             airdrag,
             gravity_then_drag,
         }

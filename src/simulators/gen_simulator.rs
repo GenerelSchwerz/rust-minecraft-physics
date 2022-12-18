@@ -1,16 +1,6 @@
-use crate::states::physics_context::EntityPhysicsContext;
-
-use super::World;
-
-pub trait Symulator {
-
-    fn simulate(ctx: EntityPhysicsContext, world: &impl World) -> EntityPhysicsContext;
 
 
-}
-
-
-
+/// todo, my friends.
 pub struct GenSimulator {
-    
+
 }
